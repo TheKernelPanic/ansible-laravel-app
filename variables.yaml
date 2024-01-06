@@ -1,0 +1,15 @@
+HOST_LARAVEL_APP: 'localhorse.net'
+DEPLOYMENT_USER: 'deployments'
+DEFAULT_GROUP: 'web-application'
+DEFAULT_USER: 'webmaster'
+PHP_VERSION: '8.2'
+LARAVEL_APP_LANGUAGES_SUPPORT:
+  - en
+  - pl
+  - fr
+  - es
+  - pt
+  - it
+  - de
+  - nl
+  - ja

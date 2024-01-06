@@ -1,0 +1,7 @@
+  - name: 'restart-nginx'
+    become: true
+    service: name=nginx state=restarted
+
+  - name: 'restart-fpm'
+    become: true
+    service: name=php8.1-fpm state=restarted

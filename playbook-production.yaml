@@ -1,0 +1,11 @@
+- name: Production server
+  hosts: production
+  vars_files:
+    - variables.yaml
+  tasks:
+    - name: Tasks
+      include_tasks: tasks.yaml
+
+  handlers:
+    - name: Handlers
+      include: handlers.yaml

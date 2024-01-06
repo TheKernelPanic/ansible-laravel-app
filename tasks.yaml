@@ -1,0 +1,210 @@
+  - name: Update cache
+    become: true
+    apt:
+     update_cache: yes
+     cache_valid_time: 3600
+
+  - name: Install nginx
+    apt: name=nginx state=present
+    become: true
+
+  - name: Install nginx extras
+    apt: name=nginx-extras state=present
+    become: true
+
+  - name: Install PHP
+    become: true
+    apt:
+     name: "php{{PHP_VERSION}}"
+     state: present
+     install_recommends: no
+
+  - name: PHP Extensions
+    become: true
+    apt:
+      pkg:
+       - "php{{PHP_VERSION}}-fpm"
+       - "php{{PHP_VERSION}}-xml"
+       - "php{{PHP_VERSION}}-dom"
+       - "php{{PHP_VERSION}}-mysql"
+       - "php{{PHP_VERSION}}-mbstring"
+       - "php{{PHP_VERSION}}-curl"
+       - "php{{PHP_VERSION}}-redis"
+       - "php{{PHP_VERSION}}-exif"
+      state: present
+    notify:
+     - 'restart-fpm'
+
+  - name: Create default group
+    become: true
+    group:
+     name: "{{ DEFAULT_GROUP }}"
+     gid: 3010
+     state: present
+
+  - name: Install certbot
+    become: true
+    apt:
+     pkg:
+      - certbot
+      - python3-certbot-nginx
+     state: present
+
+  - name: Override default site (nginx)
+    become: true
+    vars:
+      HOST: "{{ HOST_LARAVEL_APP }}"
+    template:
+     src: templates/nginx/default.tpl
+     dest: /etc/nginx/sites-available/default
+     owner: root
+     group: root
+     mode: 0644
+    notify:
+     - 'restart-nginx'
+
+  - name: Override configuration (nginx)
+    become: true
+    template:
+     src: templates/nginx/nginx.conf.tpl
+     dest: /etc/nginx/nginx.conf
+     owner: root
+     group: root
+    notify:
+     - 'restart-nginx'
+
+  - name: Add nginx user to application group
+    become: true
+    user:
+     name: www-data
+     groups: "{{ DEFAULT_GROUP }}"
+     append: yes
+
+  - name: Create storage directory (Laravel)
+    become: true
+    file:
+      path: /var/www/storage
+      state: directory
+      owner: www-data
+      group: "{{ DEFAULT_GROUP }}"
+      mode: 0775
+
+  - name: Directory for site (Laravel)
+    become: true
+    file:
+      path: /var/www/{{ HOST_LARAVEL_APP }}
+      state: directory
+      owner: www-data
+      group: "{{ DEFAULT_GROUP }}"
+      mode: 0775
+
+  - name: Create nginx site (Laravel)
+    become: true
+    vars:
+     HOST: "{{ HOST_LARAVEL_APP }}"
+     DIRNAME: "{{ HOST_LARAVEL_APP }}"
+     VERSION: "{{ PHP_VERSION }}"
+    template:
+     src: templates/nginx/laravel-app.conf.tpl
+     dest: /etc/nginx/sites-available/{{ HOST_LARAVEL_APP }}.conf
+     owner: root
+     group: root
+     mode: 0644
+    notify:
+     - 'restart-nginx'
+
+  - name: Set PHP param 'max_execution_time' (CLI)
+    become: true
+    lineinfile:
+      dest: "/etc/php/{{PHP_VERSION}}/cli/php.ini"
+      regexp: "max_execution_time ="
+      line: "max_execution_time = 600"
+
+  - name: Install MySQL server
+    apt: name=mysql-server state=present
+    become: true
+
+  - name: Install MySQL client
+    apt: name=mysql-client state=present
+    become: true
+
+  - name: Start MySQL server
+    action: service name=mysql state=started
+    become: true
+
+  - name: Enable site (Laravel)
+    become: true
+    file:
+     src: /etc/nginx/sites-available/{{ HOST_LARAVEL_APP }}.conf
+     dest: /etc/nginx/sites-enabled/{{ HOST_LARAVEL_APP }}.conf
+     state: link
+    notify:
+     - 'restart-nginx'
+
+  - name: Remove default directory (nginx)
+    become: true
+    file:
+      path: /var/www/html
+      state: absent
+
+  - name: Create nginx site (WWW redirection)
+    become: true
+    vars:
+      HOST: "{{ HOST_LARAVEL_APP }}"
+    template:
+      src: templates/nginx/www.conf.tpl
+      dest: /etc/nginx/sites-available/www.{{ HOST_LARAVEL_APP }}.conf
+      owner: root
+      group: root
+      mode: 0644
+
+  - name: Enable site (WWW redirection)
+    become: true
+    file:
+     src: /etc/nginx/sites-available/www.{{ HOST_LARAVEL_APP }}.conf
+     dest: /etc/nginx/sites-enabled/www.{{ HOST_LARAVEL_APP }}.conf
+     state: link
+    notify:
+     - 'restart-nginx'
+
+  - name: Create nginx sites for languages (Laravel)
+    become: true
+    vars:
+     HOST: "{{item}}.{{ HOST_LARAVEL_APP }}"
+     DIRNAME: "{{ HOST_LARAVEL_APP }}"
+     VERSION: "{{ PHP_VERSION }}"
+    template:
+     src: templates/nginx/laravel-app.conf.tpl
+     dest: "/etc/nginx/sites-available/{{item}}.{{ HOST_LARAVEL_APP }}.conf"
+     owner: root
+     group: root
+     mode: 0644
+    loop: "{{LARAVEL_APP_LANGUAGES_SUPPORT}}"
+    # TODO: Temporary disabled
+    when: 0 > 1
+    notify:
+     - 'restart-nginx'
+
+  - name: Enable sites for languages (Laravel)
+    become: true
+    file:
+     src: /etc/nginx/sites-available/{{item}}.{{ HOST_LARAVEL_APP }}.conf
+     dest: /etc/nginx/sites-enabled/{{item}}.{{ HOST_LARAVEL_APP }}.conf
+     state: link
+    loop: "{{LARAVEL_APP_LANGUAGES_SUPPORT}}"
+    # TODO: Temporary disabled
+    when: 0 > 1
+    notify:
+     - 'restart-nginx'
+
+  - name: Add deployment script
+    vars:
+      DIRNAME: "{{ HOST_LARAVEL_APP }}"
+      GROUP: "{{ DEFAULT_GROUP }}"
+      VERSION: "{{ PHP_VERSION }}"
+    become: true
+    template:
+     src: templates/scripts/deploy.sh.tpl
+     dest: "/home/{{DEFAULT_USER}}/deploy.sh"
+     owner: "{{DEFAULT_USER}}"
+     group: "{{DEFAULT_USER}}"
