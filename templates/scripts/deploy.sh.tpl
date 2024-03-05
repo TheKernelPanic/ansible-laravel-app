@@ -19,3 +19,5 @@ sudo chown -R www-data:{{GROUP}} /var/www/{{DIRNAME}}/*
 sudo systemctl start php{{VERSION}}-fpm
 
 rm ~/release.tar.gz
+
+sudo -u www-data php /var/www/{{DIRNAME}}/artisan storage:link
