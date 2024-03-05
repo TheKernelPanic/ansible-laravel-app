@@ -10,7 +10,7 @@ if [ $(ls "/var/www/{{DIRNAME}}" | wc -l) != 0 ]; then
 sudo rm -R /var/www/{{DIRNAME}}/*
 fi
 
-sudo tar -xf ~/release.tar.gz --strip 2 -C /var/www/{{DIRNAME}}/
+sudo tar -xf ~/release.tar.gz --strip 1 -C /var/www/{{DIRNAME}}/
 
 sudo ln -s /var/www/storage /var/www/{{DIRNAME}}/storage
 
